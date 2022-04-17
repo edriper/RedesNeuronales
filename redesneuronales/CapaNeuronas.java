@@ -219,7 +219,7 @@ public class CapaNeuronas {
                 i_dy = dy_il.darIndice("i"),
                 l_dy = dy_il.darIndice("l") ;
         
-        //g_ki = e_il * x_kl * dy_il
+        //Gradiente vs Parametros: g_ki = e_il * x_kl * dy_il
         Indice[]    k_es = {k_g,k_x},
                     i_es = {i_g,i_err,i_dy} ,
                     l_es = {l_err,l_x,l_dy} ; //solo esta se contrae
@@ -240,7 +240,7 @@ public class CapaNeuronas {
         k_w = w_ki.darIndice("k") ;
         i_w = w_ki.darIndice("i") ;
         
-        // erp_kl = e_il * dy_il * w_ki
+        // Gradiente vs Entradas: erp_kl = e_il * dy_il * w_ki
         
         k_es = new Indice[] {k_erp,k_w} ;
         l_es = new Indice[] {l_erp,l_err,l_dy};
