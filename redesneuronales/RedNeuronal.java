@@ -45,7 +45,8 @@ public class RedNeuronal {
     // l : indice dato entrenamiento
     public Indice k,i,l ;
     
-    Tensor tAnt;
+    //funciona como un puntero auxiliar a la entrada/salida de la capa previa en los cálculos
+    Tensor tAnt; 
     public void pasadaAdelanteDesde( int iCap){
         for( int cCaps = iCap  ; cCaps < capas.length ;  cCaps ++){
                     tAnt = capas[cCaps - 1].darEntradaSig();
@@ -53,8 +54,12 @@ public class RedNeuronal {
             }
     }
     
-    
-    Tensor salida , error ;
+    /* error coincide con el gradiente de la función de coste (para el caso del
+       error cuadrático medio) respecto de las salidas de la red. Es decir que el 
+       producto punto de error por un vector variación de las salidas, da la va-
+       riación de la función de coste.
+    */
+    Tensor salida , error ; 
     CapaNeuronas    primeraCapa  ,
                     ultimaCapa   ;
     
@@ -107,52 +112,42 @@ public class RedNeuronal {
         Indice l_error = (Indice)l.clone() ;
         error = new Tensor(new Indice[]{i_error,l_error}) ;
         
-        float ng_2 ; //norma del gradiente al cuadrado
-        float max_ng_2 = maxNorGrad * maxNorGrad ;
+        float ng_2 =0; //norma del gradiente al cuadrado
+        float max_ng_2 = maxNorGrad * maxNorGrad , mag2_err=0 ;
         int cIt = 0 ;
         
-        Tensor tAnt;
+        Tensor tAnt; //para qué defino otro de estos
         
         primeraCapa.procesarEntrada(datEnt[0]);
         pasadaAdelanteDesde(1) ;
         salida = ultimaCapa.darSalida() ; 
-        error  = salida.menos(datEnt[1], error);
+        tAnt = error  = salida.menos(datEnt[1], error);
+        mag2_err=error.darMagCua();
         float pp ;
         
-        do{ //aquí ya debo corregir los pesos de la última capa...
-            //capa propagada = capa corregida.
-            
-            
-            /*
-            ng_2 = ultimaCapa.darMGP_2() ;
-            pp = (float)(Math.sqrt(error.darMagCua() / ng_2 )*paso);
-            ultimaCapa.variarPesos(pp);
-            
-            pasadaAdelanteDesde( capas.length -1 ) ;
-            */
-           
-            for(int cCap=capas.length-1; cCap >= 0 ; cCap--){
-                
-                retroPropHasta( cCap) ;
-                ng_2 = capas[cCap].darMGP_2();
-                pp = (float) (Math.sqrt(error.darMagCua() / ng_2) * paso);
-                capas[cCap].variarPesos(pp);
-                if(cCap>0)
-                    pasadaAdelanteDesde(cCap) ;
-                else if(cCap==0){
-                    primeraCapa.procesarEntrada(datEnt[0]);
-                    pasadaAdelanteDesde(1) ;
+        do{ ng_2=0;
+            for(int cCap=capas.length-1;cCap >= 0;cCap--){
+                capas[cCap].procesarError(tAnt);//todas las capas deberían calcularGradientes
+                ng_2 += capas[cCap].darMGP_2() ;
+                tAnt = capas[cCap].darRetroError() ;
+                if( ng_2 > (1e20*tAnt.darMagCua())){
+                    System.out.println("it: " + (cIt++) + "\t |g|²: "+ ng_2 + "\t |e|²: " + error.darMagCua()) ;
+                    pp = paso * (float)Math.sqrt(error.darMagCua()/ng_2) ;
+                    for(int cCapInt=cCap ; cCapInt < capas.length ; cCapInt++)
+                        capas[cCapInt].variarPesos(pp);
+                    if(cCap>0)
+                        pasadaAdelanteDesde(cCap) ;
+                    else if(cCap==0){
+                        primeraCapa.procesarEntrada(datEnt[0]);
+                        pasadaAdelanteDesde(1) ;
+                    }
+                    salida = ultimaCapa.darSalida() ; 
+                    tAnt = error  = salida.menos(datEnt[1], error);
+                    mag2_err=error.darMagCua();
+                    break ;
                 }
-                salida = ultimaCapa.darSalida() ; 
-                error  = salida.menos(datEnt[1], error);
-                System.out.println("it: " + (cIt++) + "\t |g|²: "+ ng_2 + "\t |e|²: " + error.darMagCua()) ;
             }
-            
-            ng_2 = 0 ;
-            for( CapaNeuronas cap:capas)
-                ng_2 += cap.darMGP_2() ;
-            
-        } while(( ng_2 > max_ng_2 ) && (error.darMagCua() > 0.1)) ;
+        } while(( 1000*ng_2 > max_ng_2 ) || (mag2_err > 0.1)) ;
         
         
     }
@@ -256,7 +251,7 @@ public class RedNeuronal {
         
             la estructura es {2,20,20,1}
         */
-        RedNeuronal modelo = new RedNeuronal(new int[] {2,10,8,2,1} );
+        RedNeuronal modelo = new RedNeuronal(new int[] {2,5,5,5,5,1} );
         //ahora entrenamos el modelo
         modelo.entrenar(datEnt, 6e-3f, 50e-4f);
     }    
